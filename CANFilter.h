@@ -38,10 +38,5 @@ namespace CANFilter {
      * Reset the filter. Allow all messages to come in, delete old filters.
      */
     void resetFilter();
-    
-    /**
-     * Calculate the start addresses used for the RAM sections.
-     */
-    void calculateAddresses();
 }
 #endif
