@@ -120,6 +120,28 @@ namespace CANFilter
                 LPC_CANAF_RAM->mask[index-1] = (LPC_CANAF_RAM->mask[index-1] << 16) | (LPC_CANAF_RAM->mask[index] >> 16);
             }
         }
+
+        /**
+         * Sanitize the standard filters being input, so that any extra bits are removed
+         * and the controller bits are placed correctly.
+         */
+        void sanitizeStdMask(CANController SCC, uint32_t & mask) {
+            //Only have 11 bits for the mask, remove any possible extra
+            mask &= 0x000007FF;
+            //The controller bits begin at bit 13
+            mask |= (static_cast<int>(SCC) << 13);
+        }
+
+        /**
+         * Sanitize the extended filters being input, so that any extra bits are removed
+         * and the controller bits are placed correctly.
+         */
+        void sanitizeExtMask(CANController SCC, uint32_t & mask) {
+            //Only have 29 bits for the mask, remove any possible extra
+            mask &= 0x1FFFFFFF;
+            //The controller bits begin at bit 29
+            mask |= (static_cast<int>(SCC) << 29);
+        }
     }
 
     void setFilterMode(FilterMode mode)
@@ -146,4 +168,116 @@ namespace CANFilter
         LPC_CANAF->ENDofTable = 0;
     }
 
+    int insertStandardFilter(CANController SCC, uint32_t mask) {
+        //Make sure the table isn't full
+        if((LPC_CANAF->ENDofTable / 4) >= 512)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeStdMask(SCC, mask);
+
+        return 0;
+    }
+    int insertStandardGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
+        //Make sure the table isn't full
+        if((LPC_CANAF->ENDofTable / 4) >= 512)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeStdMask(SCC, start);
+        sanitizeStdMask(SCC, end);
+
+        return 0;
+    }
+    int insertExtendedFilter(CANController SCC, uint32_t mask) {
+        //Make sure the table isn't full
+        if((LPC_CANAF->ENDofTable / 4) >= 512)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeExtMask(SCC, mask);
+
+        return 0;
+    }
+    int insertExtendedGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
+        //Make sure the table isn't full, with 2 open spaces
+        if((LPC_CANAF->ENDofTable / 4) + 1 >= 512)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeExtMask(SCC, start);
+        sanitizeExtMask(SCC, end);
+
+        return 0;
+    }
+
+    int updateStandardFilter(CANController SCC, uint32_t mask) {
+        //Sanitize inputs
+        sanitizeStdMask(SCC, mask);
+
+        return 0;
+    }
+    int updateStandardGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
+        //Sanitize inputs
+        sanitizeStdMask(SCC, start);
+        sanitizeStdMask(SCC, end);
+
+        return 0;
+    }
+    int updateExtendedFilter(CANController SCC, uint32_t mask) {
+        //Sanitize inputs
+        sanitizeExtMask(SCC, mask);
+
+        return 0;
+    }
+    int updateExtendedGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
+        //Sanitize inputs
+        sanitizeExtMask(SCC, start);
+        sanitizeExtMask(SCC, end);
+
+        return 0;
+    }
+
+    int deleteStandardFilter(CANController SCC, uint32_t mask) {
+        //Make sure the table isn't empty
+        if(LPC_CANAF->ENDofTable == 0)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeStdMask(SCC, mask);
+
+        return 0;
+    }
+    int deleteStandardGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
+        //Make sure the table isn't empty
+        if(LPC_CANAF->ENDofTable == 0)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeStdMask(SCC, start);
+        sanitizeStdMask(SCC, end);
+
+        return 0;
+    }
+    int deleteExtendedFilter(CANController SCC, uint32_t mask) {
+        //Make sure the table isn't empty
+        if(LPC_CANAF->ENDofTable == 0)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeExtMask(SCC, mask);
+
+        return 0;
+    }
+    int deleteExtendedGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
+        //Make sure the table isn't empty
+        if(LPC_CANAF->ENDofTable == 0)
+            return -1;
+
+        //Sanitize inputs
+        sanitizeExtMask(SCC, start);
+        sanitizeExtMask(SCC, end);
+
+        return 0;
+    }
 }
