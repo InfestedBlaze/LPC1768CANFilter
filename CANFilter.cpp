@@ -37,7 +37,7 @@ namespace CANFilter
         }
 
         /**
-         * Shift all of the items up in the filter by 1.
+         * Shift all of the items up in the filter by 1. Duplicate entry at index.
          */
         void upShiftFilter(unsigned short index) {
             //The starting data to be modified
@@ -69,7 +69,8 @@ namespace CANFilter
         }
 
         /**
-         * Shift only the standard filters up in the filter by 1.
+         * Shift only the standard filters up in the filter by 1. Duplicate entry
+         * in the LSB of index.
          */
         void upShiftFilterStd(unsigned short index) {
             //The starting data to be modified
@@ -176,6 +177,49 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeStdMask(SCC, mask);
 
+        //Index of the insert location. Normal index * 2; +1 if LSB
+        unsigned short index;
+        //Start at the beginning of all standard items. End at the start of the
+        //standard group filter.
+        for (int i = (LPC_CANAF->SFF_sa / 4); i < (LPC_CANAF->SFF_GRP_sa / 4); i++) {
+            //Check MSB
+            if (i < (LPC_CANAF_RAM->mask[index] >> 16)) {
+                index = i * 2;
+                break;
+            }
+            if (i < (LPC_CANAF_RAM->mask[index] & 0x0000FFFF) {
+                index = i * 2 + 1;
+                break;
+            }
+        }
+
+        //Have to set the AFMR to modify mode
+        LPC_CANAF->AFMR = 1;
+
+        //If we have an even number of items, need to make a new spot
+        if (stdCANCount % 2 = 0) {
+            upShiftFilter(index / 2);
+        //If we have an odd number of items, and we are not at the end of the filter
+        //shift only the standard ids
+        } else if ((index / 2) < (LPC_CANAF->SFF_GRP_sa / 4)) {
+            upShiftFilterStd(index / 2);
+        }
+
+        //Item is in MSB
+        if (index % 2 == 0
+            //Or index is at the end of the array, && mask is less than current MSB
+            || ((index / 2) == (LPC_CANAF->SFF_GRP_sa / 4) && mask < (LPC_CANAF_RAM->mask[index] >> 16))) {
+
+            //Put the new mask in the MSB
+            LPC_CANAF_RAM->mask[index / 2] = (mask << 16) | (LPC_CANAF_RAM->mask[index] >> 16);
+        } else {
+            //Put the new mask in the LSB
+            LPC_CANAF_RAM->mask[index / 2] = (LPC_CANAF_RAM->mask[index] & 0xFFFF0000) | (id);
+        }
+
+        stdCANCount++;
+        calculateAddresses();
+
         return 0;
     }
     int insertStandardGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
@@ -186,6 +230,31 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeStdMask(SCC, start);
         sanitizeStdMask(SCC, end);
+        //Put the items into one int
+        uint32_t mask = (start << 16) & end;
+
+        //Index of the insert location.
+        unsigned short index;
+        //Start at the beginning of all standard group items. End at the start of the
+        //extended group filter.
+        for (index = (LPC_CANAF->SFF_GRP_sa / 4); index < (LPC_CANAF->EFF_sa / 4); index++) {
+            //Check if this is the insert location
+            if (mask < LPC_CANAF_RAM->mask[index]) {
+                break;
+            }
+        }
+
+        //Have to set the AFMR to modify mode
+        LPC_CANAF->AFMR = 1;
+
+        //Make space for new mask
+        upShiftFilter(index);
+
+        //Insert new mask
+        LPC_CANAF_RAM->mask[index] = mask;
+
+        stdGrpCANCount++;
+        calculateAddresses();
 
         return 0;
     }
@@ -197,6 +266,29 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeExtMask(SCC, mask);
 
+        //Index of the insert location.
+        unsigned short index;
+        //Start at the beginning of all standard group items. End at the start of the
+        //extended group filter.
+        for (index = (LPC_CANAF->EFF_sa / 4); index < (LPC_CANAF->EFF_GRP_sa / 4); index++) {
+            //Check if this is the insert location
+            if (mask < LPC_CANAF_RAM->mask[index]) {
+                break;
+            }
+        }
+
+        //Have to set the AFMR to modify mode
+        LPC_CANAF->AFMR = 1;
+
+        //Make space for new mask
+        upShiftFilter(index);
+
+        //Insert new mask
+        LPC_CANAF_RAM->mask[index] = mask;
+
+        extCANCount++;
+        calculateAddresses();
+
         return 0;
     }
     int insertExtendedGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
@@ -207,6 +299,32 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeExtMask(SCC, start);
         sanitizeExtMask(SCC, end);
+
+        //Index of the insert location.
+        unsigned short index;
+        //Start at the beginning of all standard group items. End at the start of the
+        //extended group filter.
+        for (index = (LPC_CANAF->EFF_GRP_sa / 4); index < (LPC_CANAF->ENDofTable / 4); index += 2) {
+            //Check if this is the insert location
+            if (start < LPC_CANAF_RAM->mask[index]) {
+                break;
+            }
+        }
+
+        //Have to set the AFMR to modify mode
+        LPC_CANAF->AFMR = 1;
+
+        //Make space for two new masks
+        upShiftFilter(index);
+        upShiftFilter(index + 1);
+
+        //Insert new mask start
+        LPC_CANAF_RAM->mask[index] = start;
+        //Insert new mask end
+        LPC_CANAF_RAM->mask[index + 1] = end;
+
+        extGrpCANCount++;
+        calculateAddresses();
 
         return 0;
     }
@@ -246,6 +364,10 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeStdMask(SCC, mask);
 
+
+        stdCANCount--;
+        calculateAddresses();
+
         return 0;
     }
     int deleteStandardGroupFilter(CANController SCC, uint32_t start, uint32_t end) {
@@ -257,6 +379,10 @@ namespace CANFilter
         sanitizeStdMask(SCC, start);
         sanitizeStdMask(SCC, end);
 
+
+        stdGrpCANCount--;
+        calculateAddresses();
+
         return 0;
     }
     int deleteExtendedFilter(CANController SCC, uint32_t mask) {
@@ -266,6 +392,10 @@ namespace CANFilter
 
         //Sanitize inputs
         sanitizeExtMask(SCC, mask);
+
+
+        extCANCount--;
+        calculateAddresses();
 
         return 0;
     }
@@ -277,6 +407,10 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeExtMask(SCC, start);
         sanitizeExtMask(SCC, end);
+
+
+        extGrpCANCount--;
+        calculateAddresses();
 
         return 0;
     }
