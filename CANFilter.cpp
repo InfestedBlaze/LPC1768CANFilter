@@ -187,7 +187,7 @@ namespace CANFilter
                 index = i * 2;
                 break;
             }
-            if (i < (LPC_CANAF_RAM->mask[index] & 0x0000FFFF) {
+            if (i < (LPC_CANAF_RAM->mask[index] & 0x0000FFFF)) {
                 index = i * 2 + 1;
                 break;
             }
@@ -197,7 +197,7 @@ namespace CANFilter
         LPC_CANAF->AFMR = 1;
 
         //If we have an even number of items, need to make a new spot
-        if (stdCANCount % 2 = 0) {
+        if (stdCANCount % 2 == 0) {
             upShiftFilter(index / 2);
         //If we have an odd number of items, and we are not at the end of the filter
         //shift only the standard ids
@@ -214,7 +214,7 @@ namespace CANFilter
             LPC_CANAF_RAM->mask[index / 2] = (mask << 16) | (LPC_CANAF_RAM->mask[index] >> 16);
         } else {
             //Put the new mask in the LSB
-            LPC_CANAF_RAM->mask[index / 2] = (LPC_CANAF_RAM->mask[index] & 0xFFFF0000) | (id);
+            LPC_CANAF_RAM->mask[index / 2] = (LPC_CANAF_RAM->mask[index] & 0xFFFF0000) | (mask);
         }
 
         stdCANCount++;
