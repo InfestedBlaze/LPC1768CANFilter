@@ -364,6 +364,37 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeStdMask(SCC, mask);
 
+        //Index of the delete location.
+        unsigned short index;
+
+        //Start at the beginning of all standard items. End at the start of the
+        //extended filter.
+        for (index = (LPC_CANAF->SFF_sa / 4); index < (LPC_CANAF->SFF_GRP_sa / 4); index++) {
+            //Check if this is the delete location
+            if (mask == (LPC_CANAF_RAM->mask[index] >> 16)) { //Equal to the MSB
+                break;
+            } else if (mask == (LPC_CANAF_RAM->mask[index] & 0x0000FFFF)) { //Equal to the LSB
+                //Modify the filter, so that the item to be deleted is in the MSB
+                LPC_CANAF->AFMR = 1;
+                LPC_CANAF_RAM->mask[index] = (LPC_CANAF_RAM->mask[index] << 16) | (LPC_CANAF_RAM->mask[index] >> 16);
+                break;
+            }
+        }
+
+        //If the item is not found, don't delete anything
+        if (index >= (LPC_CANAF->SFF_GRP_sa / 4)) {
+            return -2;
+        }
+
+        LPC_CANAF->AFMR = 1;
+
+        downShiftFilterStd(index);
+
+        //If we had an odd number of items, we can shrink the standard filter area
+        if (stdCANCount % 2) {
+            //Shift into the final standard filter address
+            downShiftFilter((LPC_CANAF->SFF_GRP_sa / 4) - 1);
+        }
 
         stdCANCount--;
         calculateAddresses();
@@ -379,6 +410,28 @@ namespace CANFilter
         sanitizeStdMask(SCC, start);
         sanitizeStdMask(SCC, end);
 
+        //Put the items into one int
+        uint32_t mask = (start << 16) & end;
+
+        //Index of the delete location.
+        unsigned short index;
+        //Start at the beginning of all standard group items. End at the start of the
+        //extended filter.
+        for (index = (LPC_CANAF->SFF_GRP_sa / 4); index < (LPC_CANAF->EFF_sa / 4); index++) {
+            //Check if this is the delete location
+            if (mask == LPC_CANAF_RAM->mask[index]) {
+                break;
+            }
+        }
+
+        //If the item is not found, don't delete anything
+        if (index >= (LPC_CANAF->EFF_sa / 4)) {
+            return -2;
+        }
+
+        LPC_CANAF->AFMR = 1;
+
+        downShiftFilter(index);
 
         stdGrpCANCount--;
         calculateAddresses();
@@ -393,6 +446,25 @@ namespace CANFilter
         //Sanitize inputs
         sanitizeExtMask(SCC, mask);
 
+        //Index of the delete location.
+        unsigned short index;
+        //Start at the beginning of all extended items. End at the start of the
+        //extended group filter.
+        for (index = (LPC_CANAF->EFF_sa / 4); index < (LPC_CANAF->EFF_GRP_sa / 4); index++) {
+            //Check if this is the delete location
+            if (mask == LPC_CANAF_RAM->mask[index]) {
+                break;
+            }
+        }
+
+        //If the item is not found, don't delete anything
+        if (index >= (LPC_CANAF->EFF_GRP_sa / 4)) {
+            return -2;
+        }
+
+        LPC_CANAF->AFMR = 1;
+
+        downShiftFilter(index);
 
         extCANCount--;
         calculateAddresses();
@@ -408,6 +480,28 @@ namespace CANFilter
         sanitizeExtMask(SCC, start);
         sanitizeExtMask(SCC, end);
 
+        //Index of the delete location.
+        unsigned short index;
+        //Start at the beginning of all extended group items. End at the start of the
+        //extended group filter.
+        for (index = (LPC_CANAF->EFF_GRP_sa / 4); index < (LPC_CANAF->ENDofTable / 4); index += 2) {
+            //Check if this is the delete location
+            if (start == LPC_CANAF_RAM->mask[index]
+                && end == LPC_CANAF_RAM->mask[index+1]) {
+                break;
+            }
+        }
+
+        //If the item is not found, don't delete anything
+        if (index >= (LPC_CANAF->ENDofTable / 4)) {
+            return -2;
+        }
+
+        LPC_CANAF->AFMR = 1;
+
+        //Delete both items
+        downShiftFilter(index);
+        downShiftFilter(index);
 
         extGrpCANCount--;
         calculateAddresses();
